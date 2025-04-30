@@ -101,4 +101,4 @@ def example_data():
     return jsonify(example_data)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run()
