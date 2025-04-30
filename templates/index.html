@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>California House Price Predictor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.18.2.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #1E3A8A;
+            --secondary-color: #3B82F6;
+            --light-bg: #F9FAFB;
+            --prediction-bg: #EFF6FF;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #F3F4F6;
+        }
+        
+        .main-header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 1.5rem 0;
+            margin-bottom: 2rem;
+        }
+        
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 1.5rem;
+            border: none;
+        }
+        
+        .card-header {
+            background-color: var(--secondary-color);
+            color: white;
+            font-weight: 600;
+            border-radius: 10px 10px 0 0 !important;
+        }
+        
+        .form-control, .form-select {
+            border-radius: 8px;
+        }
+        
+        .form-label {
+            font-weight: 500;
+            margin-top: 0.5rem;
+        }
+        
+        #map {
+            height: 350px;
+            border-radius: 10px;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary-color);
+            border: none;
+            border-radius: 8px;
+            padding: 0.5rem 1.5rem;
+            font-weight: 600;
+        }
+        
+        .btn-primary:hover {
+            background-color: #1e40af;
+        }
+        
+        .prediction-box {
+            background-color: var(--prediction-bg);
+            padding: 1.5rem;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+        }
+        
+        .prediction-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        
+        .tab-content {
+            padding: 1.5rem;
+            background-color: white;
+            border-radius: 0 0 10px 10px;
+        }
+        
+        .nav-tabs .nav-link {
+            color: var(--secondary-color);
+            font-weight: 500;
+        }
+        
+        .nav-tabs .nav-link.active {
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+        
+        .metric-card {
+            background-color: white;
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--secondary-color);
+        }
+        
+        .metric-title {
+            font-size: 0.9rem;
+            color: #6B7280;
+        }
+        
+        .visualization-container {
+            height: 400px;
+            margin-bottom: 2rem;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 1.5rem 0;
+            margin-top: 2rem;
+            background-color: white;
+            color: #6B7280;
+            font-size: 0.9rem;
+        }
+        
+        .feature-icon {
+            background-color: var(--prediction-bg);
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            margin-right: 10px;
+            color: var(--primary-color);
+        }
+        
+        @media (max-width: 768px) {
+            .main-header h1 {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="main-header">
+        <div class="container">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-home fa-2x me-3"></i>
+                <h1 class="mb-0">California House Price Predictor</h1>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <ul class="nav nav-tabs" id="myTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="predict-tab" data-bs-toggle="tab" data-bs-target="#predict" type="button" role="tab" aria-controls="predict" aria-selected="true">
+                    <i class="fas fa-calculator me-2"></i>Price Prediction
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="visualize-tab" data-bs-toggle="tab" data-bs-target="#visualize" type="button" role="tab" aria-controls="visualize" aria-selected="false">
+                    <i class="fas fa-chart-line me-2"></i>Data Visualization
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="about-tab" data-bs-toggle="tab" data-bs-target="#about" type="button" role="tab" aria-controls="about" aria-selected="false">
+                    <i class="fas fa-info-circle me-2"></i>About
+                </button>
+            </li>
+        </ul>
+        
+        <div class="tab-content" id="myTabContent">
+            <div class="tab-pane fade show active" id="predict" role="tabpanel" aria-labelledby="predict-tab">
+                <div class="row">
+                    <div class="col-md-5">
+                        <div class="card">
+                            <div class="card-header">
+                                <i class="fas fa-map-marker-alt me-2"></i>Location
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label for="longitude" class="form-label">Longitude</label>
+                                        <input type="range" class="form-range" id="longitude" min="-124" max="-114" step="0.1" value="-119.5">
+                                        <div class="text-center" id="longitude-value">-119.5</div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="latitude" class="form-label">Latitude</label>
+                                        <input type="range" class="form-range" id="latitude" min="32.5" max="42" step="0.1" value="37.0">
+                                        <div class="text-center" id="latitude-value">37.0</div>
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <label for="ocean-proximity" class="form-label">Ocean Proximity</label>
+                                    <select class="form-select" id="ocean-proximity">
+                                        <option value="<1H OCEAN">&lt;1H OCEAN</option>
+                                        <option value="INLAND">INLAND</option>
+                                        <option value="NEAR OCEAN">NEAR OCEAN</option>
+                                        <option value="NEAR BAY">NEAR BAY</option>
+                                        <option value="ISLAND">ISLAND</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-header">
+                                <i class="fas fa-building me-2"></i>Property Details
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label for="housing-median-age" class="form-label">Housing Median Age</label>
+                                    <input type="range" class="form-range" id="housing-median-age" min="1" max="52" value="20">
+                                    <div class="text-center" id="housing-median-age-value">20</div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label for="total-rooms" class="form-label">Total Rooms</label>
+                                        <input type="number" class="form-control" id="total-rooms" min="10" max="20000" value="1500">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="total-bedrooms" class="form-label">Total Bedrooms</label>
+                                        <input type="number" class="form-control" id="total-bedrooms" min="5" max="5000" value="300">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card">
+                            <div class="card-header">
+                                <i class="fas fa-users me-2"></i>Demographics
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label for="population" class="form-label">Population</label>
+                                        <input type="number" class="form-control" id="population" min="10" max="20000" value="1000">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="households" class="form-label">Households</label>
+                                        <input type="number" class="form-control" id="households" min="5" max="5000" value="300">
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <label for="median-income" class="form-label">Median Income (tens of thousands)</label>
+                                    <input type="range" class="form-range" id="median-income" min="0" max="15" step="0.1" value="5.0">
+                                    <div class="text-center" id="median-income-value">5.0</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button id="predict-button" class="btn btn-primary w-100 mt-3 mb-4">
+                            <i class="fas fa-calculator me-2"></i>Predict House Price
+                        </button>
+                    </div>
+                    
+                    <div class="col-md-7">
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <i class="fas fa-map me-2"></i>Location Preview
+                            </div>
+                            <div class="card-body p-0">
+                                <div id="map"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-4">
+                            <div class="col-md-4">
+                                <div class="metric-card">
+                                    <div class="metric-value" id="rooms-per-household">5.0</div>
+                                    <div class="metric-title">Rooms per Household</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="metric-card">
+                                    <div class="metric-value" id="bedrooms-per-room">0.20</div>
+                                    <div class="metric-title">Bedrooms per Room</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="metric-card">
+                                    <div class="metric-value" id="population-per-household">3.3</div>
+                                    <div class="metric-title">People per Household</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="prediction-box" id="prediction-container">
+                            <h4>Estimated House Price</h4>
+                            <div class="prediction-value" id="prediction-value">$0.00</div>
+                            <p class="text-muted" id="prediction-note">Based on the provided features</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="tab-pane fade" id="visualize" role="tabpanel" aria-labelledby="visualize-tab">
+                <h3 class="mb-4">Explore California Housing Data</h3>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <i class="fas fa-map-marked-alt me-2"></i>House Price Heat Map
+                            </div>
+                            <div class="card-body">
+                                <div id="heatmap" class="visualization-container"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <i class="fas fa-th me-2"></i>Feature Correlation
+                            </div>
+                            <div class="card-body">
+                                <div id="correlation" class="visualization-container"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mt-4">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <i class="fas fa-water me-2"></i>Price by Ocean Proximity
+                            </div>
+                            <div class="card-body">
+                                <div id="boxplot" class="visualization-container"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <i class="fas fa-chart-scatter me-2"></i>Income vs. House Value
+                            </div>
+                            <div class="card-body">
+                                <div id="scatter" class="visualization-container"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="tab-pane fade" id="about" role="tabpanel" aria-labelledby="about-tab">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-info-circle me-2"></i>About this Predictor
+                    </div>
+                    <div class="card-body">
+                        <p>This application predicts house prices in California based on various features including geographical location, 
+                        property characteristics, and demographic information.</p>
+                        
+                        <h5 class="mt-4">Data Features</h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="feature-icon">
+                                        <i class="fas fa-map-marker-alt"></i>
+                                    </div>
+                                    <div>
+                                        <strong>Longitude & Latitude</strong>
+                                        <div class="text-muted small">Geographic coordinates in California</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="feature-icon">
+                                        <i class="fas fa-calendar-alt"></i>
+                                    </div>
+                                    <div>
+                                        <strong>Housing Median Age</strong>
+                                        <div class="text-muted small">Median age of houses in the block</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="feature-icon">
+                                        <i class="fas fa-door-open"></i>
+                                    </div>
+                                    <div>
+                                        <strong>Total Rooms & Bedrooms</strong>
+                                        <div class="text-muted small">Room counts in the block</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="feature-icon">
+                                        <i class="fas fa-users"></i>
+                                    </div>
+                                    <div>
+                                        <strong>Population</strong>
+                                        <div class="text-muted small">Total population in the block</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="feature-icon">
+                                        <i class="fas fa-home"></i>
+                                    </div>
+                                    <div>
+                                        <strong>Households</strong>
+                                        <div class="text-muted small">Total number of households</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="feature-icon">
+                                        <i class="fas fa-dollar-sign"></i>
+                                    </div>
+                                    <div>
+                                        <strong>Median Income</strong>
+                                        <div class="text-muted small">In tens of thousands of dollars</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="feature-icon">
+                                        <i class="fas fa-water"></i>
+                                    </div>
+                                    <div>
+                                        <strong>Ocean Proximity</strong>
+                                        <div class="text-muted small">Location relative to ocean</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <h5 class="mt-4">Model Information</h5>
+                        <p>The prediction model is trained on the California Housing dataset, which contains information from the 1990 California census.
+                        The model uses a machine learning algorithm to predict median house values based on the input features.</p>
+                        
+                        <h5 class="mt-4">How to Use</h5>
+                        <ol>
+                            <li>Go to the "Price Prediction" tab</li>
+                            <li>Adjust the input features to match your house specifications</li>
+                            <li>Click the "Predict House Price" button to get an estimate</li>
+                            <li>Explore the "Data Visualization" tab to understand pricing trends</li>
+                        </ol>
+                        
+                        <h5 class="mt-4">Data Privacy</h5>
+                        <p>This application does not store any user input data. All predictions are generated locally in your browser session.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <footer>
+        <div class="container">
+            <p>California House Price Predictor | Built with ❤️ by Muhammad Tayyab — FAST NUCES</p>
+        </div>
+    </footer>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Initialize map
+        const map = L.map('map').setView([37.0, -119.5], 6);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        
+        let marker = L.marker([37.0, -119.5]).addTo(map);
+        
+        // Update marker when location changes
+        document.getElementById('longitude').addEventListener('input', updateLocation);
+        document.getElementById('latitude').addEventListener('input', updateLocation);
+        
+        function updateLocation() {
+            const longitude = parseFloat(document.getElementById('longitude').value);
+            const latitude = parseFloat(document.getElementById('latitude').value);
+            
+            document.getElementById('longitude-value').textContent = longitude.toFixed(1);
+            document.getElementById('latitude-value').textContent = latitude.toFixed(1);
+            
+            marker.setLatLng([latitude, longitude]);
+            map.panTo([latitude, longitude]);
+            
+            updateDerivedMetrics();
+        }
+        
+        // Update values when sliders change
+        document.getElementById('housing-median-age').addEventListener('input', function() {
+            document.getElementById('housing-median-age-value').textContent = this.value;
+        });
+        
+        document.getElementById('median-income').addEventListener('input', function() {
+            document.getElementById('median-income-value').textContent = parseFloat(this.value).toFixed(1);
+        });
+        
+        // Update derived metrics
+        function updateDerivedMetrics() {
+            const totalRooms = parseInt(document.getElementById('total-rooms').value);
+            const totalBedrooms = parseInt(document.getElementById('total-bedrooms').value);
+            const population = parseInt(document.getElementById('population').value);
+            const households = parseInt(document.getElementById('households').value);
+            
+            const roomsPerHousehold = totalRooms / Math.max(1, households);
+            const bedroomsPerRoom = totalBedrooms / Math.max(1, totalRooms);
+            const populationPerHousehold = population / Math.max(1, households);
+            
+            document.getElementById('rooms-per-household').textContent = roomsPerHousehold.toFixed(1);
+            document.getElementById('bedrooms-per-room').textContent = bedroomsPerRoom.toFixed(2);
+            document.getElementById('population-per-household').textContent = populationPerHousehold.toFixed(1);
+        }
+        
+        // Add event listeners to update derived metrics
+        document.getElementById('total-rooms').addEventListener('input', updateDerivedMetrics);
+        document.getElementById('total-bedrooms').addEventListener('input', updateDerivedMetrics);
+        document.getElementById('population').addEventListener('input', updateDerivedMetrics);
+        document.getElementById('households').addEventListener('input', updateDerivedMetrics);
+        
+        // Initialize metrics
+        updateDerivedMetrics();
+        
+        // Predict price
+        document.getElementById('predict-button').addEventListener('click', function() {
+            const data = {
+                longitude: document.getElementById('longitude').value,
+                latitude: document.getElementById('latitude').value,
+                housing_median_age: document.getElementById('housing-median-age').value,
+                total_rooms: document.getElementById('total-rooms').value,
+                total_bedrooms: document.getElementById('total-bedrooms').value,
+                population: document.getElementById('population').value,
+                households: document.getElementById('households').value,
+                median_income: document.getElementById('median-income').value,
+                ocean_proximity: document.getElementById('ocean-proximity').value
+            };
+            
+            fetch('/predict', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                document.getElementById('prediction-container').style.display = 'block';
+                document.getElementById('prediction-value').textContent = result.formatted_prediction;
+                
+                if (result.status === 'demo') {
+                    document.getElementById('prediction-note').textContent = 'Example prediction (model not loaded)';
+                } else {
+                    document.getElementById('prediction-note').textContent = 'Based on the provided features';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('prediction-container').style.display = 'block';
+                document.getElementById('prediction-value').textContent = 'Error';
+                document.getElementById('prediction-note').textContent = 'Failed to generate prediction';
+            });
+        });
+        
+        // Load visualization data
+        let vizDataLoaded = false;
+        
+        document.getElementById('visualize-tab').addEventListener('click', function() {
+            if (!vizDataLoaded) {
+                loadVisualizationData();
+                vizDataLoaded = true;
+            }
+        });
+        
+        function loadVisualizationData() {
+            fetch('/example_data')
+                .then(response => response.json())
+                .then(data => {
+                    createHeatmap(data.locations);
+                    createCorrelationMatrix(data.correlation);
+                    createBoxPlot(data.proximities);
+                    createScatterPlot(data);
+                })
+                .catch(error => console.error('Error loading visualization data:', error));
+        }
+        
+        function createHeatmap(locations) {
+            const lons = locations.map(loc => loc.longitude);
+            const lats = locations.map(loc => loc.latitude);
+            const values = locations.map(loc => loc.value);
+            
+            const data = [{
+                type: 'densitymapbox',
+                lat: lats,
+                lon: lons,
+                z: values,
+                radius: 20,
+                colorscale: 'Viridis',
+                showscale: true,
+                colorbar: {
+                    title: 'House Value ($)'
+                }
+            }];
+            
+            const layout = {
+                mapbox: {
+                    style: "open-street-map",
+                    center: { lat: 37, lon: -119.5 },
+                    zoom: 5
+                },
+                margin: { t: 0, b: 0, l: 0, r: 0 },
+                height: 370
+            };
+            
+            Plotly.newPlot('heatmap', data, layout);
+        }
+        
+        function createCorrelationMatrix(correlation) {
+            const data = [{
+                z: correlation.values,
+                x: correlation.features,
+                y: correlation.features,
+                type: 'heatmap',
+                colorscale: 'RdBu',
+                reversescale: true,
+                zmin: -1,
+                zmax: 1
+            }];
+            
+            const layout = {
+                title: 'Feature Correlation Matrix',
+                height: 370,
+                margin: { t: 30, b: 50, l: 80, r: 20 }
+            };
+            
+            Plotly.newPlot('correlation', data, layout);
+        }
+        
+        function createBoxPlot(proximities) {
+            const data = proximities.map(item => {
+                return {
+                    y: item.values,
+                    type: 'box',
+                    name: item.proximity
+                };
+            });
+            
+            const layout = {
+                title: 'House Prices by Ocean Proximity',
+                yaxis: {
+                    title: 'House Value ($)'
+                },
+                height: 370,
+                margin: { t: 30, b: 80, l: 50, r: 20 }
+            };
+            
+            Plotly.newPlot('boxplot', data, layout);
+        }
+        
+        function createScatterPlot(data) {
+            // Generate mock data for scatter plot
+            const n = 200;
+            const xValues = Array.from({length: n}, () => Math.random() * 15);
+            const yValues = Array.from({length: n}, (_, i) => xValues[i] * 50000 + Math.random() * 300000);
+            const groups = ['<1H OCEAN', 'INLAND', 'NEAR OCEAN', 'NEAR BAY', 'ISLAND'];
+            const categories = Array.from({length: n}, () => groups[Math.floor(Math.random() * groups.length)]);
+            
+            const traces = groups.map(group => {
+                const indices = categories.map((cat, i) => cat === group ? i : -1).filter(i => i !== -1);
+                return {
+                    x: indices.map(i => xValues[i]),
+                    y: indices.map(i => yValues[i]),
+                    mode: 'markers',
+                    type: 'scatter',
+                    name: group,
+                    marker: { size: 8 }
+                };
+            });
+            
+            const layout = {
+                title: 'Income vs. House Value',
+                xaxis: {
+                    title: 'Median Income (tens of thousands)'
+                },
+                yaxis: {
+                    title: 'House Value ($)'
+                },
+                height: 370,
+                margin: { t: 30, b: 50, l: 50, r: 20 }
+            };
+            
+            Plotly.newPlot('scatter', traces, layout);
+        }
+    </script>
+</body>
+</html>
