@@ -82,13 +82,13 @@ project-root/
 
 | Model          | MAE     | RMSE     | R²     |
 |----------------|---------|----------|--------|
-| Linear         | ~       | ~        | ~      |
-| Ridge          | ~       | ~        | ~      |
-| Lasso          | ~       | ~        | ~      |
-| Xgboost        | ~       | ~        | ~      |
-| **Random Forest**| ✅ Best | ✅ Best  | ✅ Best |
+| Linear         | 49,534       | 68,174        | 0.6647     |
+| Ridge          | 49,536       | 68,175       | 0.6647      |
+| Lasso          | 49,534       | 68,174        | 0.6647      |
+| Xgboost        | 35,405      | 51,962       | 0.8052      |
+| **Random Forest**| 31,957 | 49,487  | 0.8233 |
 
-_(Fill with your actual values from `results_df` table.)_
+
 
 ---
 
